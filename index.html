@@ -46,30 +46,63 @@ document.getElementById('patterns').value = localStorage.getItem('patterns') || 
 
 function highlightText() {
     const patternsInput = document.getElementById('patterns');
-    const patterns = patternsInput.value.split('\n').map(line => line.trim()).filter(Boolean);
+    // Split patterns into lines, trim them, remove empty lines, and sort by length (longest first)
+    const patterns = patternsInput.value.split('\n')
+        .map(line => line.trim())
+        .filter(Boolean)
+        .sort((a, b) => b.length - a.length);
 
-    localStorage.setItem('patterns', patternsInput.value);  // Save patterns to local storage
+    localStorage.setItem('patterns', patternsInput.value); // Save patterns to local storage
 
     let documentContent = document.getElementById('document').innerHTML;
 
-    // Escape special characters and sort patterns by length (long to short)
-    const escapedPatterns = patterns.map(pattern =>
-        pattern.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')
-    ).sort((a, b) => b.length - a.length);
+    // Function to escape regex special characters.
+    function escapeRegex(string) {
+        return string.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+    }
 
-    // Create a regex to avoid lines with "PG"
-    const pgRegex = /^(?!.*\bPG\b).*$/gm;
-    let filteredContent = documentContent.split('<br>').filter(line => pgRegex.test(line)).join('<br>');
+    // Function to process highlighting for a line.
+    function processLine(line, patterns) {
+        let processedLine = line;
+        patterns.forEach(pattern => {
+            let parts = pattern.split(/\s+/);
+            for (let i = parts.length; i > 0; i--) {
+                let subPattern = parts.slice(0, i).join(' ');
+                let escapedPattern = escapeRegex(subPattern);
+                let regex = new RegExp(`\\b${escapedPattern}(?!\\w)`, 'gi');
+                processedLine = processedLine.replace(regex, '<span class="highlight">$&</span>');
+            }
+        });
+        return processedLine;
+    }
 
-    // Highlight patterns
-    escapedPatterns.forEach(pattern => {
-        const regex = new RegExp(`\\b(${pattern})\\b`, 'gi');
-        filteredContent = filteredContent.replace(regex, '<span class="highlight">$1</span>');
+    // Split the document into lines.
+    let lines = documentContent.split(/<br>|<\/div><div>/gi);
+    let highlightedLines = lines.map(line => {
+        // Check if line contains "PG", if so, return without highlighting.
+        if (/\bPG\b/i.test(line)) {
+            return line;
+        } else {
+            return processLine(line, patterns);
+        }
     });
 
-    // Display highlighted text
-    document.getElementById('output').innerHTML = filteredContent;
+    // Join the lines back together.
+    let finalOutput = highlightedLines.join('<br>');
+
+    // Display highlighted text.
+    document.getElementById('output').innerHTML = finalOutput;
 }
+
+document.addEventListener('DOMContentLoaded', function() {
+    document.getElementById('patterns').value = localStorage.getItem('patterns') || '';
+});
+
+
+document.addEventListener('DOMContentLoaded', function() {
+    document.getElementById('patterns').value = localStorage.getItem('patterns') || '';
+});
+
 </script>
 </body>
 </html>
