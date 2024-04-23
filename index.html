@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Rich Text Document Highlighter</title>
+<style>
+    .highlight {
+        background-color: yellow;
+    }
+    .input, .output {
+        border: 1px solid #ccc;
+        padding: 10px;
+        width: 90%;
+        min-height: 150px;
+        margin: 10px 5% 20px 5%; /* Centering the element by giving 5% margin from left and right */
+        overflow: auto;
+    }
+    .output {
+        min-height: 300px;
+    }
+    textarea {
+        width: 90%;
+        height: 150px;
+        margin: 10px 5% 20px 5%; /* Centering the element */
+    }
+    button {
+        margin-left: 5%; /* Align with the input fields */
+    }
+    label {
+        display: block;
+        margin: 20px 5% 10px 5%; /* Align with the input fields */
+    }
+</style>
+</head>
+<body>
+<h1>Rich Text Document Highlighter</h1>
+<label for="patterns">Enter Patterns (one per line):</label>
+<textarea id="patterns"></textarea>
+<label for="document">Paste Document Content:</label>
+<div id="document" class="input" contenteditable="true"></div>
+<button onclick="highlightText()">Highlight</button>
+<div id="output" class="output" contenteditable="true"></div>
+
+<script>
+document.getElementById('patterns').value = localStorage.getItem('patterns') || '';
+
+function highlightText() {
+    const patternsInput = document.getElementById('patterns');
+    const patterns = patternsInput.value.split('\n').map(line => line.trim()).filter(Boolean);
+
+    localStorage.setItem('patterns', patternsInput.value);  // Save patterns to local storage
+
+    let documentContent = document.getElementById('document').innerHTML;
+
+    // Escape special characters and sort patterns by length (long to short)
+    const escapedPatterns = patterns.map(pattern =>
+        pattern.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')
+    ).sort((a, b) => b.length - a.length);
+
+    // Create a regex to avoid lines with "PG"
+    const pgRegex = /^(?!.*\bPG\b).*$/gm;
+    let filteredContent = documentContent.split('<br>').filter(line => pgRegex.test(line)).join('<br>');
+
+    // Highlight patterns
+    escapedPatterns.forEach(pattern => {
+        const regex = new RegExp(`\\b(${pattern})\\b`, 'gi');
+        filteredContent = filteredContent.replace(regex, '<span class="highlight">$1</span>');
+    });
+
+    // Display highlighted text
+    document.getElementById('output').innerHTML = filteredContent;
+}
+</script>
+</body>
+</html>
