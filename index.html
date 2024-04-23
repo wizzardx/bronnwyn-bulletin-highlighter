@@ -77,7 +77,7 @@ function highlightText() {
     }
 
     // Split the document into lines.
-    let lines = documentContent.split(/<br>|<\/div><div>/gi);
+    let lines = documentContent.split(/<br>|<\/p><p>|<\/div><div>/gi);
     let highlightedLines = lines.map(line => {
         // Check if line contains "PG", if so, return without highlighting.
         if (/\bPG\b/i.test(line)) {
