@@ -1,108 +1,138 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>Bronnwyn's Bulletin Highlighter</title>
-<style>
-    .highlight {
-        background-color: yellow;
-    }
-    .input, .output {
-        border: 1px solid #ccc;
-        padding: 10px;
-        width: 90%;
-        min-height: 150px;
-        margin: 10px 5% 20px 5%; /* Centering the element by giving 5% margin from left and right */
-        overflow: auto;
-    }
-    .output {
-        min-height: 300px;
-    }
-    textarea {
-        width: 90%;
-        height: 150px;
-        margin: 10px 5% 20px 5%; /* Centering the element */
-    }
-    button {
-        margin-left: 5%; /* Align with the input fields */
-    }
-    label {
-        display: block;
-        margin: 20px 5% 10px 5%; /* Align with the input fields */
-    }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bronnwyn's Bulletin Highlighter</title>
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; padding: 20px; max-width: 800px; margin: 0 auto; }
+        h1 { color: #333; }
+        label { display: block; margin-top: 10px; }
+        textarea { width: 100%; height: 200px; margin-bottom: 10px; }
+        button { background-color: #4CAF50; color: white; padding: 10px 15px; border: none; cursor: pointer; }
+        button:hover { background-color: #45a049; }
+        #output {
+            border: 1px solid #ddd;
+            padding: 10px;
+            margin-top: 20px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            font-family: monospace;
+        }
+        .highlight { background-color: yellow !important; display: inline !important; }
+    </style>
 </head>
 <body>
-<h1>Bronnwyn's Bulletin Highlighter</h1>
-<label for="patterns">Enter Patterns (one per line):</label>
-<textarea id="patterns"></textarea>
-<label for="document">Paste Document Content:</label>
-<div id="document" class="input" contenteditable="true"></div>
-<button onclick="highlightText()">Highlight</button>
-<div id="output" class="output"></div>
+    <h1>Bronnwyn's Bulletin Highlighter</h1>
 
-<script>
-document.getElementById('patterns').value = localStorage.getItem('patterns') || '';
+    <div>
+        <label for="patterns">Enter Patterns (one per line):</label>
+        <textarea id="patterns" placeholder="Enter search patterns here..."></textarea>
+    </div>
 
-function highlightText() {
-    const patternsInput = document.getElementById('patterns');
-    // Split patterns into lines, trim them, remove empty lines, and sort by length (longest first)
-    const patterns = patternsInput.value.split('\n')
-        .map(line => line.trim())
-        .filter(Boolean)
-        .sort((a, b) => b.length - a.length);
+    <div>
+        <label for="document">Paste Document Content:</label>
+        <textarea id="document" placeholder="Paste your document content here..."></textarea>
+    </div>
 
-    localStorage.setItem('patterns', patternsInput.value); // Save patterns to local storage
+    <button id="highlightBtn">Highlight</button>
 
-    let documentContent = document.getElementById('document').innerHTML;
+    <div>
+        <h2>Output:</h2>
+        <div id="output"></div>
+    </div>
 
-    // Function to escape regex special characters.
-    function escapeRegex(string) {
-        return string.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+    <script>
+    /**
+     * Escapes special characters in a string for use in a regular expression.
+     * @param {string} string - The input string to escape.
+     * @return {string} The escaped string.
+     */
+    function escapeRegExp(string) {
+        return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     }
 
-    // Function to process highlighting for a line.
-    function processLine(line, patterns) {
-        let processedLine = line;
-        patterns.forEach(pattern => {
-            let parts = pattern.split(/\s+/);
-            for (let i = parts.length; i > 0; i--) {
-                let subPattern = parts.slice(0, i).join(' ');
-                let escapedPattern = escapeRegex(subPattern);
-                let regex = new RegExp(`\\b${escapedPattern}(?!\\w)`, 'gi');
-                processedLine = processedLine.replace(regex, '<span class="highlight">$&</span>');
-            }
-        });
-        return processedLine;
+    /**
+     * Escapes HTML special characters in a string.
+     * @param {string} unsafe - The input string containing potential HTML characters.
+     * @return {string} The escaped string safe for insertion into HTML.
+     */
+    function escapeHtml(unsafe) {
+        return unsafe
+             .replace(/&/g, "&amp;")
+             .replace(/</g, "&lt;")
+             .replace(/>/g, "&gt;")
+             .replace(/"/g, "&quot;")
+             .replace(/'/g, "&#039;");
     }
 
-    // Split the document into lines.
-    let lines = documentContent.split(/<br>|<\/p><p>|<\/div><div>/gi);
-    let highlightedLines = lines.map(line => {
-        // Check if line contains "PG", if so, return without highlighting.
-        if (/\bPG\b/i.test(line)) {
-            return line;
-        } else {
-            return processLine(line, patterns);
+    /**
+     * Highlights search terms in the given document content.
+     * @param {string} searchTerms - The search terms, separated by newlines and/or "or".
+     * @param {string} documentContent - The document content to highlight.
+     * @return {string} The highlighted HTML content.
+     */
+    function highlightContent(searchTerms, documentContent) {
+        // Process search terms
+        const terms = searchTerms
+            .split(/\n/)
+            .flatMap(line => line.split(/\s*or\s*/i))
+            .map(term => term.trim())
+            .filter(term => term && !term.includes('not pg'))
+            .map(term => term.replace(/^"(.*)"$/, '$1'))  // Remove surrounding quotes
+            .map(escapeRegExp);
+
+        // Create regex pattern and escape HTML content
+        const regex = new RegExp(`(${terms.join('|')})`, 'gi');
+        let highlightedContent = escapeHtml(documentContent);
+
+        // Apply highlighting
+        highlightedContent = highlightedContent.replace(regex, '<span class="highlight">$1</span>');
+
+        return highlightedContent;
+    }
+
+    /**
+     * Saves the search terms to localStorage.
+     */
+    function saveSearchTerms() {
+        const searchTerms = document.getElementById('patterns').value;
+        localStorage.setItem('searchTerms', searchTerms);
+    }
+
+    /**
+     * Loads the search terms from localStorage.
+     */
+    function loadSearchTerms() {
+        const searchTerms = localStorage.getItem('searchTerms');
+        if (searchTerms) {
+            document.getElementById('patterns').value = searchTerms;
+        }
+    }
+
+    // Event listener for the highlight button
+    document.getElementById('highlightBtn').addEventListener('click', function() {
+        const searchTerms = document.getElementById('patterns').value;
+        const documentContent = document.getElementById('document').value;
+
+        try {
+            const highlightedContent = highlightContent(searchTerms, documentContent);
+            document.getElementById('output').innerHTML = highlightedContent;
+            saveSearchTerms();
+            console.log('Highlighting complete');
+        } catch (error) {
+            console.error('Error processing document:', error);
+            document.getElementById('output').textContent = 'An error occurred while processing the document. Please check your input and try again.';
         }
     });
 
-    // Join the lines back together.
-    let finalOutput = highlightedLines.join('<br>');
+    // Load search terms when the page loads
+    window.addEventListener('load', loadSearchTerms);
 
-    // Display highlighted text.
-    document.getElementById('output').innerHTML = finalOutput;
-}
+    // Save search terms when the user types in the patterns textarea
+    document.getElementById('patterns').addEventListener('input', saveSearchTerms);
 
-document.addEventListener('DOMContentLoaded', function() {
-    document.getElementById('patterns').value = localStorage.getItem('patterns') || '';
-});
-
-
-document.addEventListener('DOMContentLoaded', function() {
-    document.getElementById('patterns').value = localStorage.getItem('patterns') || '';
-});
-
-</script>
+    console.log('Highlighter initialized');
+    </script>
 </body>
 </html>
